@@ -1,11 +1,30 @@
 import React, { useState } from 'react';
 import { DATASET_STATS, PREPROCESSING_PIPELINE_STEPS, SAMPLE_DISTRIBUTIONS, CORRELATION_MATRIX } from '../data/dataset';
-import { Database, ShieldCheck, CheckCircle2, BarChart2, GitFork, AlertTriangle } from 'lucide-react';
+import { PRESET_SAMPLE_DATASET_CSV } from '../data/sampleDatasetCsv';
+import { triggerFileDownload, copyTextToClipboard } from '../utils/downloadHelper';
+import { Database, ShieldCheck, CheckCircle2, BarChart2, GitFork, AlertTriangle, Download, Copy, Check } from 'lucide-react';
 
 export const DatasetPipeline: React.FC = () => {
   const [selectedDistKey, setSelectedDistKey] = useState<string>('systolicBP');
+  const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
 
   const currentDist = SAMPLE_DISTRIBUTIONS.find(d => d.key === selectedDistKey) || SAMPLE_DISTRIBUTIONS[0];
+
+  const handleDownloadCsv = () => {
+    // Try direct server endpoint first
+    try {
+      const a = document.createElement('a');
+      a.href = '/api/download/dataset.csv';
+      a.download = 'cardiovascular_dataset_sample.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (_err) {}
+
+    triggerFileDownload('cardiovascular_dataset_sample.csv', PRESET_SAMPLE_DATASET_CSV, 'text/csv');
+    setDownloadSuccess(true);
+    setTimeout(() => setDownloadSuccess(false), 3000);
+  };
 
   return (
     <div className="space-y-6">
@@ -23,9 +42,20 @@ export const DatasetPipeline: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-xl border border-emerald-200 shrink-0">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Leak-Free Validated</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadCsv}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+            title="Download synthetic cohort CSV dataset"
+          >
+            {downloadSuccess ? <Check className="w-3.5 h-3.5 text-white" /> : <Download className="w-3.5 h-3.5" />}
+            <span>{downloadSuccess ? 'Downloaded CSV!' : 'Download Dataset (.CSV)'}</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 text-xs font-semibold px-3 py-2 rounded-xl border border-emerald-200 shrink-0">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Leak-Free Validated</span>
+          </div>
         </div>
       </div>
 

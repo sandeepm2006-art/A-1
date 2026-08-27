@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Sparkles
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface InputFormProps {
   params: CardioInputParams;
@@ -66,17 +67,19 @@ export const InputForm: React.FC<InputFormProps> = ({
             </p>
           </div>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
             type="button"
             onClick={resetToDefault}
-            className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-300 transition-colors flex items-center gap-1 self-start sm:self-auto shadow-xs"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-300 transition-colors flex items-center gap-1 self-start sm:self-auto shadow-xs cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
-          </button>
+          </motion.button>
         </div>
 
-        {/* Quick Archetype Pills */}
+        {/* Quick Archetype Pills with Spring Hover Animations */}
         <div className="mt-3 pt-3 border-t border-slate-200">
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-500" />
@@ -85,16 +88,18 @@ export const InputForm: React.FC<InputFormProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {PRESET_PATIENTS.map((p) => {
               const badgeTheme: Record<string, string> = {
-                'Low Risk': 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100',
-                'Borderline Risk': 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100',
-                'High Risk': 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
+                'Low Risk': 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300',
+                'Borderline Risk': 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:border-blue-300',
+                'High Risk': 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100 hover:border-red-300'
               };
               return (
-                <button
+                <motion.button
                   key={p.id}
+                  whileHover={{ scale: 1.02, y: -1 }}
+                  whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={() => handlePresetSelect(p.id)}
-                  className={`text-left p-2.5 rounded-lg border text-xs transition-all ${badgeTheme[p.badge] || 'bg-white'}`}
+                  className={`text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer shadow-2xs ${badgeTheme[p.badge] || 'bg-white'}`}
                 >
                   <div className="font-bold text-slate-900 truncate text-xs">
                     {p.name.split(' (')[0]}
@@ -102,31 +107,39 @@ export const InputForm: React.FC<InputFormProps> = ({
                   <div className="text-[10px] font-semibold opacity-90 mt-0.5 uppercase tracking-wider">
                     {p.badge}
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
         </div>
       </div>
 
-      {/* Validation Alert Box */}
-      {validationIssues.length > 0 && (
-        <div className={`p-3 border-b text-xs ${hasErrors ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-          <div className="flex items-start gap-2">
-            <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${hasErrors ? 'text-red-600' : 'text-amber-600'}`} />
-            <div>
-              <div className="font-bold uppercase tracking-wider text-[11px] mb-1">
-                {hasErrors ? 'Input Validation Errors Detected:' : 'Clinical Input Warnings:'}
+      {/* Animated Validation Alert Box */}
+      <AnimatePresence>
+        {validationIssues.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className={`p-3 border-b text-xs overflow-hidden ${hasErrors ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}
+          >
+            <div className="flex items-start gap-2">
+              <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${hasErrors ? 'text-red-600' : 'text-amber-600'}`} />
+              <div>
+                <div className="font-bold uppercase tracking-wider text-[11px] mb-1">
+                  {hasErrors ? 'Input Validation Errors Detected:' : 'Clinical Input Warnings:'}
+                </div>
+                <ul className="space-y-0.5 list-disc list-inside">
+                  {validationIssues.map((v, i) => (
+                    <li key={i}>{v.message}</li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-0.5 list-disc list-inside">
-                {validationIssues.map((v, i) => (
-                  <li key={i}>{v.message}</li>
-                ))}
-              </ul>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Parameter Groups Form */}
       <div className="p-5 space-y-6">
@@ -144,9 +157,14 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Age (Years)</label>
-                <span className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                <motion.span
+                  key={params.age}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs"
+                >
                   {params.age} yrs
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -168,28 +186,30 @@ export const InputForm: React.FC<InputFormProps> = ({
                 Biological Sex
               </label>
               <div className="grid grid-cols-2 gap-1.5">
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('sex', 0)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.sex === 0
                       ? 'bg-sky-700 text-white border-sky-800 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Female
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('sex', 1)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.sex === 1
                       ? 'bg-sky-700 text-white border-sky-800 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Male
-                </button>
+                </motion.button>
               </div>
             </div>
 
@@ -199,28 +219,30 @@ export const InputForm: React.FC<InputFormProps> = ({
                 Family History of CVD
               </label>
               <div className="grid grid-cols-2 gap-1.5">
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('familyHistory', 0)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.familyHistory === 0
                       ? 'bg-slate-100 text-slate-700 border-slate-300 font-bold'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   No History
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('familyHistory', 1)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.familyHistory === 1
                       ? 'bg-red-100 text-red-800 border-red-300 font-bold'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Yes (&lt;55y 1st-deg)
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
@@ -245,13 +267,18 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Systolic BP</label>
-                <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border ${
-                  params.systolicBP >= 140 ? 'bg-red-100 text-red-800 border-red-200' :
-                  params.systolicBP >= 130 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                  'bg-white text-slate-900 border-slate-200'
-                }`}>
+                <motion.span
+                  key={params.systolicBP}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border shadow-2xs ${
+                    params.systolicBP >= 140 ? 'bg-red-100 text-red-800 border-red-200' :
+                    params.systolicBP >= 130 ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                    'bg-white text-slate-900 border-slate-200'
+                  }`}
+                >
                   {params.systolicBP} mmHg
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -272,13 +299,18 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Diastolic BP</label>
-                <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border ${
-                  params.diastolicBP >= 90 ? 'bg-red-100 text-red-800 border-red-200' :
-                  params.diastolicBP >= 80 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                  'bg-white text-slate-900 border-slate-200'
-                }`}>
+                <motion.span
+                  key={params.diastolicBP}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border shadow-2xs ${
+                    params.diastolicBP >= 90 ? 'bg-red-100 text-red-800 border-red-200' :
+                    params.diastolicBP >= 80 ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                    'bg-white text-slate-900 border-slate-200'
+                  }`}
+                >
                   {params.diastolicBP} mmHg
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -299,9 +331,14 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Heart Rate</label>
-                <span className="text-xs font-mono font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                <motion.span
+                  key={params.restingHeartRate}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-mono font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs"
+                >
                   {params.restingHeartRate} bpm
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -323,28 +360,30 @@ export const InputForm: React.FC<InputFormProps> = ({
                 BP Meds Status
               </label>
               <div className="grid grid-cols-2 gap-1.5 my-1">
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('onHypertensionMeds', 0)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.onHypertensionMeds === 0
                       ? 'bg-slate-100 text-slate-700 border-slate-300 font-bold'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Untreated
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('onHypertensionMeds', 1)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.onHypertensionMeds === 1
                       ? 'bg-sky-700 text-white border-sky-800 font-bold'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Treated
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
@@ -369,9 +408,14 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Chol</label>
-                <span className="text-xs font-mono font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                <motion.span
+                  key={params.totalCholesterol}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-mono font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs"
+                >
                   {params.totalCholesterol}
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -392,9 +436,14 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">HDL (Good)</label>
-                <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                <motion.span
+                  key={params.hdlCholesterol}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shadow-2xs"
+                >
                   {params.hdlCholesterol}
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -415,12 +464,17 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">LDL (Bad)</label>
-                <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border ${
-                  params.ldlCholesterol >= 160 ? 'bg-red-100 text-red-800 border-red-200' :
-                  'bg-white text-slate-900 border-slate-200'
-                }`}>
+                <motion.span
+                  key={params.ldlCholesterol}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border shadow-2xs ${
+                    params.ldlCholesterol >= 160 ? 'bg-red-100 text-red-800 border-red-200' :
+                    'bg-white text-slate-900 border-slate-200'
+                  }`}
+                >
                   {params.ldlCholesterol}
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -441,9 +495,14 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Triglycerides</label>
-                <span className="text-xs font-mono font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                <motion.span
+                  key={params.triglycerides}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-mono font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs"
+                >
                   {params.triglycerides}
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -464,13 +523,18 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Glucose</label>
-                <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border ${
-                  params.fastingBloodGlucose >= 126 ? 'bg-red-100 text-red-800 border-red-200' :
-                  params.fastingBloodGlucose >= 100 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                  'bg-white text-slate-900 border-slate-200'
-                }`}>
+                <motion.span
+                  key={params.fastingBloodGlucose}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border shadow-2xs ${
+                    params.fastingBloodGlucose >= 126 ? 'bg-red-100 text-red-800 border-red-200' :
+                    params.fastingBloodGlucose >= 100 ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                    'bg-white text-slate-900 border-slate-200'
+                  }`}
+                >
                   {params.fastingBloodGlucose}
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -489,7 +553,7 @@ export const InputForm: React.FC<InputFormProps> = ({
           </div>
         </div>
 
-        {/* Section 4: Lifestyle & Comorbidities with High Density Badges */}
+        {/* Section 4: Lifestyle & Comorbidities */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
             <Flame className="w-3.5 h-3.5 text-sky-700" />
@@ -503,13 +567,18 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Body Mass Index</label>
-                <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border ${
-                  params.bmi >= 30 ? 'bg-red-100 text-red-800 border-red-200' :
-                  params.bmi >= 25 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                  'bg-emerald-100 text-emerald-800 border-emerald-200'
-                }`}>
+                <motion.span
+                  key={params.bmi}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border shadow-2xs ${
+                    params.bmi >= 30 ? 'bg-red-100 text-red-800 border-red-200' :
+                    params.bmi >= 25 ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                    'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  }`}
+                >
                   {params.bmi} kg/m²
-                </span>
+                </motion.span>
               </div>
               <input
                 type="range"
@@ -531,17 +600,18 @@ export const InputForm: React.FC<InputFormProps> = ({
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Smoking Status</label>
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
                   type="button"
                   onClick={() => updateField('smokingStatus', params.smokingStatus === 1 ? 0 : 1)}
-                  className={`px-2 py-0.5 text-[10px] font-black rounded uppercase tracking-wider transition-all ${
+                  className={`px-2 py-0.5 text-[10px] font-black rounded uppercase tracking-wider transition-all cursor-pointer ${
                     params.smokingStatus === 1
-                      ? 'bg-red-100 text-red-700 border border-red-300'
+                      ? 'bg-red-100 text-red-700 border border-red-300 shadow-2xs'
                       : 'bg-slate-100 text-slate-600 border border-slate-300'
                   }`}
                 >
                   {params.smokingStatus === 1 ? 'Current Smoker' : 'None / Ex'}
-                </button>
+                </motion.button>
               </div>
 
               {params.smokingStatus === 1 ? (
@@ -599,28 +669,30 @@ export const InputForm: React.FC<InputFormProps> = ({
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-1.5 my-1">
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('diabetesStatus', 0)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.diabetesStatus === 0
                       ? 'bg-slate-100 text-slate-700 border-slate-300'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   None
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
                   type="button"
                   onClick={() => updateField('diabetesStatus', 1)}
-                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                  className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                     params.diabetesStatus === 1
-                      ? 'bg-red-700 text-white border-red-800'
+                      ? 'bg-red-700 text-white border-red-800 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Type 1/2
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>

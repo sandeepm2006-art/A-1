@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { CardioInputParams, PredictionResult } from '../types/cardio';
 import { predictCardiovascularRisk } from '../ml/engine';
-import { Sparkles, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Sparkles, RotateCcw, CheckCircle2, TrendingDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { AnimatedCounter } from './AnimatedCounter';
 
 interface WhatIfCounterfactualProps {
   originalParams: CardioInputParams;
@@ -29,8 +31,8 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
 
   const triggerConfetti = () => {
     confetti({
-      particleCount: 70,
-      spread: 60,
+      particleCount: 80,
+      spread: 70,
       origin: { y: 0.6 }
     });
   };
@@ -48,32 +50,42 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
   return (
     <div className="space-y-4">
       {/* Intro Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3"
+      >
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-sky-700" />
+            <Sparkles className="w-4 h-4 text-sky-700 animate-pulse" />
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
               "What-If" Counterfactual Intervention Laboratory
             </h2>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-            Quantify predicted 10-year risk reduction and SHAP attribution shifts from modifiable lifestyle habits and clinical interventions.
+            Quantify predicted 10-year risk reduction and SHAP attribution shifts from modifiable lifestyle habits and clinical interventions in real time.
           </p>
         </div>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
           onClick={resetSimulation}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-300 transition-colors self-start md:self-auto shadow-xs"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-300 transition-colors self-start md:self-auto shadow-xs cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Reset to Baseline</span>
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
-      {/* Outcome Comparison Grid */}
+      {/* Outcome Comparison Grid with Realistic Spring Transitions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Baseline */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between"
+        >
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Current Baseline
@@ -95,22 +107,27 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
           <p className="text-[11px] text-slate-500 mt-3 pt-2.5 border-t border-slate-100">
             Unmodified initial patient biomarkers.
           </p>
-        </div>
+        </motion.div>
 
         {/* Projected Counterfactual */}
-        <div className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200 shadow-xs flex flex-col justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200 shadow-xs flex flex-col justify-between"
+        >
           <div>
             <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest">
               Projected Post-Intervention
             </span>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-4xl font-black text-emerald-900 tracking-tight">
-                {simPrediction.riskScorePercent}
+                <AnimatedCounter value={simPrediction.riskScorePercent} decimals={1} duration={450} />
               </span>
               <span className="text-lg font-bold text-emerald-600">%</span>
             </div>
             <div className="text-xs font-bold mt-2 text-emerald-900">
-              New Tier: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black text-white ${
+              New Tier: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black text-white shadow-2xs ${
                 simPrediction.riskCategory === 'High' ? 'bg-red-600' :
                 simPrediction.riskCategory === 'Intermediate' ? 'bg-amber-600' :
                 simPrediction.riskCategory === 'Borderline' ? 'bg-blue-600' : 'bg-emerald-600'
@@ -120,17 +137,22 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
           <p className="text-[11px] text-emerald-800 mt-3 pt-2.5 border-t border-emerald-200/80 font-medium">
             Simulated optimization of BP, smoking, and lipids.
           </p>
-        </div>
+        </motion.div>
 
         {/* Net Quantified Benefit (Slate-900 High Density Box) */}
-        <div className="bg-slate-900 p-4 rounded-xl text-white shadow-xs flex flex-col justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-slate-900 p-4 rounded-xl text-white shadow-xs flex flex-col justify-between"
+        >
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Net Quantified Benefit
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-4xl font-mono font-black text-emerald-400">
-                {deltaPercent}%
+                <AnimatedCounter value={deltaPercent} decimals={1} duration={450} />%
               </span>
               <span className="text-xs font-sans text-slate-400 uppercase font-bold">Absolute Δ</span>
             </div>
@@ -140,21 +162,23 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
             {isReduced ? (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Risk Reduced
+                  <CheckCircle2 className="w-3.5 h-3.5 animate-pulse" /> Risk Reduced
                 </span>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   type="button"
                   onClick={triggerConfetti}
-                  className="text-[10px] font-bold bg-sky-700 hover:bg-sky-600 text-white px-2 py-0.5 rounded uppercase tracking-wider transition-colors"
+                  className="text-[10px] font-bold bg-sky-700 hover:bg-sky-600 text-white px-2 py-0.5 rounded uppercase tracking-wider transition-colors cursor-pointer shadow-xs"
                 >
                   Celebrate
-                </button>
+                </motion.button>
               </div>
             ) : (
               <span className="text-xs text-slate-400">No net reduction simulated.</span>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Interactive Controls */}
@@ -169,9 +193,14 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div className="flex justify-between items-center mb-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Target Systolic BP</label>
-              <span className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+              <motion.span
+                key={simParams.systolicBP}
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs"
+              >
                 {simParams.systolicBP} mmHg
-              </span>
+              </motion.span>
             </div>
             <input
               type="range"
@@ -193,28 +222,30 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
               Smoking Cessation Status
             </label>
             <div className="grid grid-cols-2 gap-1.5 my-1">
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => updateSimField('smokingStatus', 0)}
-                className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                   simParams.smokingStatus === 0
                     ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 Quit / Non-Smoker
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => updateSimField('smokingStatus', 1)}
-                className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                   simParams.smokingStatus === 1
                     ? 'bg-red-600 text-white border-red-700 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 Active Smoker
-              </button>
+              </motion.button>
             </div>
             <div className="text-[10px] text-slate-400 font-mono">
               Init: {originalParams.smokingStatus === 1 ? `Smoker (${originalParams.cigarettesPerDay} cigs)` : 'Non-Smoker'}
@@ -225,9 +256,14 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div className="flex justify-between items-center mb-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Target BMI</label>
-              <span className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+              <motion.span
+                key={simParams.bmi}
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs"
+              >
                 {simParams.bmi} kg/m²
-              </span>
+              </motion.span>
             </div>
             <input
               type="range"
@@ -248,9 +284,14 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div className="flex justify-between items-center mb-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Target LDL-C</label>
-              <span className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+              <motion.span
+                key={simParams.ldlCholesterol}
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                className="text-xs font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs"
+              >
                 {simParams.ldlCholesterol} mg/dL
-              </span>
+              </motion.span>
             </div>
             <input
               type="range"
@@ -274,7 +315,7 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
             <select
               value={simParams.physicalActivity}
               onChange={(e) => updateSimField('physicalActivity', Number(e.target.value))}
-              className="w-full bg-white text-slate-800 text-xs font-semibold rounded px-2.5 py-1.5 border border-slate-200 focus:ring-1 focus:ring-sky-600 focus:outline-none"
+              className="w-full bg-white text-slate-800 text-xs font-semibold rounded px-2.5 py-1.5 border border-slate-200 focus:ring-1 focus:ring-sky-600 focus:outline-none cursor-pointer shadow-2xs"
             >
               <option value={0}>Sedentary (&lt;30m/wk)</option>
               <option value={1}>Light (1-2x/wk)</option>
@@ -292,28 +333,30 @@ export const WhatIfCounterfactual: React.FC<WhatIfCounterfactualProps> = ({
               Hypertension Therapy
             </label>
             <div className="grid grid-cols-2 gap-1.5 my-1">
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => updateSimField('onHypertensionMeds', 0)}
-                className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                   simParams.onHypertensionMeds === 0
                     ? 'bg-slate-100 text-slate-700 border-slate-300'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 Untreated
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => updateSimField('onHypertensionMeds', 1)}
-                className={`py-1.5 text-xs font-bold rounded border text-center transition-all ${
+                className={`py-1.5 text-xs font-bold rounded border text-center transition-all cursor-pointer ${
                   simParams.onHypertensionMeds === 1
                     ? 'bg-sky-700 text-white border-sky-800'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 Treated
-              </button>
+              </motion.button>
             </div>
             <div className="text-[10px] text-slate-400">
               Antihypertensive medication coverage

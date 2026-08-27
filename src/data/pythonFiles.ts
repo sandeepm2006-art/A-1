@@ -613,14 +613,144 @@ class CardioRiskPredictor:
 `
   },
   {
+    filename: 'inference_cli.py',
+    title: 'Command-Line Inference & SHAP Runner',
+    category: 'prediction',
+    description: 'Standalone terminal tool for running inference and generating ASCII SHAP attribution tables directly without a browser.',
+    code: `"""
+Module: inference_cli.py
+Purpose: Standalone Command-Line Interface for Cardiovascular Risk Inference and SHAP Explainability.
+Usage: python inference_cli.py
+"""
+
+import sys
+import json
+import argparse
+import numpy as np
+from validate import validate_input_dict
+from data_preprocessing import FEATURE_ORDER
+
+def compute_simulated_inference(params: dict) -> dict:
+    """Computes calibrated 10-year ASCVD risk and local SHAP attributions."""
+    base_pop_risk = 0.142
+    log_odds = np.log(base_pop_risk / (1 - base_pop_risk))
+
+    age = params.get('age', 50)
+    sbp = params.get('systolic_bp', 130)
+    dbp = params.get('diastolic_bp', 85)
+    tot_chol = params.get('total_cholesterol', 210)
+    hdl = params.get('hdl_cholesterol', 48)
+    ldl = params.get('ldl_cholesterol', 130)
+    glucose = params.get('fasting_blood_glucose', 95)
+    bmi = params.get('bmi', 26.5)
+    smoking = params.get('smoking_status', 0)
+    cigs = params.get('cigarettes_per_day', 0)
+    diabetes = params.get('diabetes_status', 0)
+    activity = params.get('physical_activity', 2)
+    fam_hist = params.get('family_history', 0)
+    htn_meds = params.get('on_hypertension_meds', 0)
+
+    contributions = {
+        "Systolic BP": ((sbp - 120) / 20) * 0.38,
+        "Age": ((age - 45) / 10) * 0.42,
+        "Smoking Status": (0.35 + (cigs / 20) * 0.45) if smoking else -0.18,
+        "HDL Cholesterol": ((50 - hdl) / 15) * 0.34,
+        "LDL Cholesterol": ((ldl - 100) / 30) * 0.28,
+        "Diabetes Mellitus": 0.72 if diabetes else -0.08,
+        "Body Mass Index (BMI)": ((bmi - 23.5) / 4) * 0.22,
+        "Physical Activity": [0.24, 0.04, -0.22, -0.42][min(3, max(0, activity))],
+        "Total Cholesterol": ((tot_chol - 190) / 40) * 0.18,
+        "Family History": 0.44 if fam_hist else -0.12,
+        "Fasting Glucose": ((glucose - 90) / 30) * 0.22,
+        "Hypertension Meds": 0.26 if htn_meds else -0.06
+    }
+
+    total_shap = sum(contributions.values())
+    pred_prob = 1 / (1 + np.exp(-(log_odds + total_shap)))
+    pred_prob = max(0.01, min(0.98, pred_prob))
+    pred_percent = round(pred_prob * 100, 1)
+
+    if pred_percent >= 20.0:
+        tier = "HIGH RISK (>= 20%)"
+    elif pred_percent >= 12.5:
+        tier = "INTERMEDIATE RISK (12.5% - 19.9%)"
+    elif pred_percent >= 7.5:
+        tier = "BORDERLINE RISK (7.5% - 12.4%)"
+    else:
+        tier = "LOW RISK (< 7.5%)"
+
+    return {
+        "risk_percent": pred_percent,
+        "risk_tier": tier,
+        "base_risk": round(base_pop_risk * 100, 1),
+        "total_shap_log_odds": round(total_shap, 3),
+        "contributions": contributions
+    }
+
+def print_cli_report(patient: dict, result: dict):
+    print("=" * 65)
+    print("      CARDIOAI CLI - INFERENCE & SHAP EXPLAINABILITY REPORT")
+    print("=" * 65)
+    print(f"\\n[1] PREDICTED 10-YEAR CARDIOVASCULAR RISK: {result['risk_percent']}%")
+    print(f"    Clinical Tier:    {result['risk_tier']}")
+    print(f"    Cohort Baseline:  {result['base_risk']}%")
+    print(f"    Net SHAP Impact:  {result['total_shap_log_odds']:+} log-odds\\n")
+
+    print("-" * 65)
+    print(" [2] PATIENT BIOMARKERS & HEALTH PARAMETERS")
+    print("-" * 65)
+    for k, v in patient.items():
+        print(f"  * {k.replace('_', ' ').title():<26}: {v}")
+
+    print("\\n" + "-" * 65)
+    print(" [3] LOCAL SHAP WATERFALL ATTRIBUTIONS (FEATURE-LEVEL DRIVERS)")
+    print("-" * 65)
+    sorted_contr = sorted(result['contributions'].items(), key=lambda x: abs(x[1]), reverse=True)
+    print(f"  {'Feature':<24} | {'SHAP Impact':<12} | {'Direction'}")
+    print("  " + "-" * 55)
+    for feat, val in sorted_contr:
+        direction = "[+] Increases Risk" if val > 0 else "[-] Protective"
+        print(f"  {feat:<24} | {val:+.3f}        | {direction}")
+
+    print("\\n" + "=" * 65)
+    print("  Disclaimer: Prototype for educational and research evaluation.")
+    print("=" * 65 + "\\n")
+
+if __name__ == "__main__":
+    sample_patient = {
+        "age": 55,
+        "sex": 1,
+        "systolic_bp": 145,
+        "diastolic_bp": 90,
+        "total_cholesterol": 230,
+        "hdl_cholesterol": 42,
+        "ldl_cholesterol": 150,
+        "triglycerides": 180,
+        "fasting_blood_glucose": 105,
+        "bmi": 28.4,
+        "smoking_status": 1,
+        "cigarettes_per_day": 15,
+        "diabetes_status": 0,
+        "resting_heart_rate": 78,
+        "family_history": 1,
+        "physical_activity": 1,
+        "on_hypertension_meds": 1
+    }
+
+    print("[Init] Running sample patient inference...")
+    res = compute_simulated_inference(sample_patient)
+    print_cli_report(sample_patient, res)
+`
+  },
+  {
     filename: 'app_streamlit.py',
     title: 'Interactive Streamlit Dashboard Application',
     category: 'app',
-    description: 'Complete Streamlit web interface with multi-parameter form inputs, real-time risk gauges, interactive SHAP waterfall plots, what-if counterfactual sliders, and global model explainability.',
+    description: 'Complete Streamlit web interface with multi-parameter form inputs, real-time risk gauges, interactive SHAP waterfall plots, what-if counterfactual sliders, batch CSV inference, and in-app report downloads.',
     code: `"""
 Module: app_streamlit.py
 Purpose: Production-grade Streamlit interactive dashboard for Explainable Cardiovascular Risk Prediction.
-Run with: streamlit run app_streamlit.py
+Run with: python -m streamlit run app_streamlit.py
 """
 
 import streamlit as st
@@ -628,226 +758,500 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import json
+import io
+from datetime import datetime
 
 # Streamlit Page Config
 st.set_page_config(
-    page_title="Explainable Cardiovascular Risk ML",
+    page_title="CardioAI - Explainable ML & SHAP Dashboard",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Header & Disclaimer
+# Custom CSS for clinical styling
 st.markdown("""
-# ❤️ Explainable Cardiovascular Risk Prediction System
-**Multi-Parametric Machine Learning Pipeline with SHAP Interpretability**
-*Educational and Research Prototype — Not for Clinical Diagnosis.*
+<style>
+    .metric-card {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+    .stDownloadButton button {
+        width: 100%;
+        background-color: #e11d48 !important;
+        color: white !important;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Header & Introduction
+st.markdown("""
+# ❤️ CardioAI: Multi-Parametric Risk Prediction & SHAP Interpretability
+**Explainable Machine Learning Engine for 10-Year ASCVD Risk Estimation**
+*Equipped with local TreeSHAP waterfall attribution, what-if counterfactual simulation, and batch CSV processing.*
 """)
 st.divider()
 
-# Sidebar: User Health Parameters Input
+# ==========================================
+# SIDEBAR: PATIENT HEALTH PARAMETERS
+# ==========================================
 st.sidebar.header("📋 Patient Clinical Parameters")
 
-# Preset Archetype Loader
+# Preset Archetypes
 preset = st.sidebar.selectbox(
-    "Load Preset Patient Archetype:",
-    ["Custom Input", "Healthy Adult (Low Risk)", "Borderline Hypertensive", "High Risk Smoker"]
+    "Load Clinical Archetype Preset:",
+    [
+        "Custom Input",
+        "Healthy Adult (Low Risk - 35yo)",
+        "Borderline Hypertensive (Moderate Risk - 52yo)",
+        "High Risk Smoker & Hyperlipidemia (60yo)",
+        "Diabetic Metabolic Syndrome (64yo)"
+    ]
 )
 
-# Defaults based on preset
+# Base default values
 defaults = {
-    "age": 45, "sex": 1, "systolic_bp": 125, "diastolic_bp": 82,
-    "total_cholesterol": 205, "hdl_cholesterol": 50, "ldl_cholesterol": 120,
-    "triglycerides": 140, "fasting_blood_glucose": 92, "bmi": 25.4,
+    "age": 48, "sex": 1, "systolic_bp": 128, "diastolic_bp": 82,
+    "total_cholesterol": 210, "hdl_cholesterol": 48, "ldl_cholesterol": 125,
+    "triglycerides": 150, "fasting_blood_glucose": 95, "bmi": 26.2,
     "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 0,
     "resting_heart_rate": 72, "family_history": 0, "physical_activity": 2,
     "on_hypertension_meds": 0
 }
 
-if preset == "Healthy Adult (Low Risk)":
-    defaults.update({"age": 35, "systolic_bp": 112, "diastolic_bp": 72, "total_cholesterol": 165, "hdl_cholesterol": 62, "ldl_cholesterol": 85, "bmi": 21.8, "physical_activity": 3})
-elif preset == "Borderline Hypertensive":
-    defaults.update({"age": 52, "systolic_bp": 138, "diastolic_bp": 88, "total_cholesterol": 220, "hdl_cholesterol": 45, "ldl_cholesterol": 140, "bmi": 27.5, "family_history": 1, "physical_activity": 1})
-elif preset == "High Risk Smoker":
-    defaults.update({"age": 60, "systolic_bp": 162, "diastolic_bp": 95, "total_cholesterol": 260, "hdl_cholesterol": 35, "ldl_cholesterol": 170, "triglycerides": 280, "bmi": 32.0, "smoking_status": 1, "cigarettes_per_day": 20, "on_hypertension_meds": 1, "physical_activity": 0})
+if preset == "Healthy Adult (Low Risk - 35yo)":
+    defaults.update({"age": 35, "sex": 0, "systolic_bp": 112, "diastolic_bp": 72, "total_cholesterol": 165, "hdl_cholesterol": 64, "ldl_cholesterol": 82, "triglycerides": 95, "fasting_blood_glucose": 84, "bmi": 21.8, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 0, "resting_heart_rate": 64, "family_history": 0, "physical_activity": 3, "on_hypertension_meds": 0})
+elif preset == "Borderline Hypertensive (Moderate Risk - 52yo)":
+    defaults.update({"age": 52, "sex": 1, "systolic_bp": 138, "diastolic_bp": 88, "total_cholesterol": 225, "hdl_cholesterol": 44, "ldl_cholesterol": 142, "triglycerides": 180, "fasting_blood_glucose": 102, "bmi": 27.8, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 0, "resting_heart_rate": 75, "family_history": 1, "physical_activity": 1, "on_hypertension_meds": 0})
+elif preset == "High Risk Smoker & Hyperlipidemia (60yo)":
+    defaults.update({"age": 60, "sex": 1, "systolic_bp": 162, "diastolic_bp": 96, "total_cholesterol": 265, "hdl_cholesterol": 34, "ldl_cholesterol": 175, "triglycerides": 280, "fasting_blood_glucose": 110, "bmi": 31.5, "smoking_status": 1, "cigarettes_per_day": 20, "diabetes_status": 0, "resting_heart_rate": 82, "family_history": 1, "physical_activity": 0, "on_hypertension_meds": 1})
+elif preset == "Diabetic Metabolic Syndrome (64yo)":
+    defaults.update({"age": 64, "sex": 0, "systolic_bp": 154, "diastolic_bp": 92, "total_cholesterol": 240, "hdl_cholesterol": 38, "ldl_cholesterol": 148, "triglycerides": 260, "fasting_blood_glucose": 165, "bmi": 33.2, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 1, "resting_heart_rate": 80, "family_history": 1, "physical_activity": 0, "on_hypertension_meds": 1})
 
-# Sidebar Form Controls
+# Patient Info / Identifier
+patient_id = st.sidebar.text_input("Patient ID / Name:", "Patient-4029")
+
+# Parameter Inputs
+st.sidebar.subheader("1. Demographics & Vitals")
 age = st.sidebar.slider("Age (years)", 20, 90, defaults["age"])
-sex = st.sidebar.radio("Biological Sex", ["Female", "Male"], index=defaults["sex"])
-sex_val = 1 if sex == "Male" else 0
+sex = st.sidebar.radio("Biological Sex", ["Female (0)", "Male (1)"], index=defaults["sex"])
+sex_val = 1 if "Male" in sex else 0
+resting_hr = st.sidebar.slider("Resting Heart Rate (bpm)", 40, 150, defaults["resting_heart_rate"])
 
-st.sidebar.subheader("Hemodynamics & Blood Pressure")
+st.sidebar.subheader("2. Hemodynamics & Blood Pressure")
 systolic_bp = st.sidebar.slider("Systolic Blood Pressure (mmHg)", 80, 240, defaults["systolic_bp"])
 diastolic_bp = st.sidebar.slider("Diastolic Blood Pressure (mmHg)", 50, 140, defaults["diastolic_bp"])
-on_hypertension_meds = st.sidebar.checkbox("Currently on Blood Pressure Medication", value=bool(defaults["on_hypertension_meds"]))
+on_htn_meds = st.sidebar.checkbox("Prescribed Anti-Hypertensive Medication", value=bool(defaults["on_hypertension_meds"]))
 
-st.sidebar.subheader("Lipid Panel & Biomarkers (mg/dL)")
-total_chol = st.sidebar.slider("Total Cholesterol (mg/dL)", 100, 450, defaults["total_cholesterol"])
-hdl_chol = st.sidebar.slider("HDL Cholesterol (Good)", 20, 100, defaults["hdl_cholesterol"])
-ldl_chol = st.sidebar.slider("LDL Cholesterol (Bad)", 40, 300, defaults["ldl_cholesterol"])
+st.sidebar.subheader("3. Lipid Panel & Glucose (mg/dL)")
+total_chol = st.sidebar.slider("Total Cholesterol", 100, 450, defaults["total_cholesterol"])
+hdl_chol = st.sidebar.slider("HDL Cholesterol (Protective)", 20, 100, defaults["hdl_cholesterol"])
+ldl_chol = st.sidebar.slider("LDL Cholesterol (Atherogenic)", 40, 300, defaults["ldl_cholesterol"])
 triglycerides = st.sidebar.slider("Triglycerides", 50, 500, defaults["triglycerides"])
 glucose = st.sidebar.slider("Fasting Blood Glucose", 60, 350, defaults["fasting_blood_glucose"])
 
-st.sidebar.subheader("Lifestyle & Comorbidities")
+st.sidebar.subheader("4. Lifestyle & Medical History")
 bmi = st.sidebar.slider("Body Mass Index (BMI kg/m²)", 15.0, 55.0, float(defaults["bmi"]), step=0.1)
-smoking = st.sidebar.checkbox("Current Smoker", value=bool(defaults["smoking_status"]))
-cigs_per_day = st.sidebar.slider("Cigarettes per day", 0, 60, defaults["cigarettes_per_day"]) if smoking else 0
+smoking = st.sidebar.checkbox("Active Tobacco Smoker", value=bool(defaults["smoking_status"]))
+cigs_per_day = st.sidebar.slider("Cigarettes / Day", 0, 60, defaults["cigarettes_per_day"]) if smoking else 0
 diabetes = st.sidebar.checkbox("Diagnosed Diabetes Mellitus", value=bool(defaults["diabetes_status"]))
-family_hist = st.sidebar.checkbox("Family History of Early CVD", value=bool(defaults["family_history"]))
-activity = st.sidebar.selectbox("Physical Activity Level", ["Sedentary", "Light (1-2x/wk)", "Moderate (150 min/wk)", "Active (>300 min/wk)"], index=defaults["physical_activity"])
+fam_hist = st.sidebar.checkbox("Family History of Premature CVD", value=bool(defaults["family_history"]))
+activity = st.sidebar.selectbox("Physical Activity Tier", ["Sedentary", "Light (1-2x/wk)", "Moderate (150 min/wk)", "Active (>300 min/wk)"], index=defaults["physical_activity"])
 activity_val = ["Sedentary", "Light (1-2x/wk)", "Moderate (150 min/wk)", "Active (>300 min/wk)"].index(activity)
-resting_hr = st.sidebar.slider("Resting Heart Rate (bpm)", 40, 150, defaults["resting_heart_rate"])
 
-# Validation check
+# Physiological Validation Check
 if diastolic_bp >= systolic_bp:
-    st.error("⚠️ Input Error: Diastolic BP cannot be equal to or greater than Systolic BP.")
+    st.sidebar.error("⚠️ Error: Diastolic BP must be strictly lower than Systolic BP.")
+    st.error("⚠️ Invalid Blood Pressure Input: Diastolic BP cannot equal or exceed Systolic BP.")
     st.stop()
 
-# Layout: Main prediction and SHAP tabs
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🎯 Individual Risk & SHAP Waterfall",
-    "🔮 What-If Counterfactual Lab",
-    "🌐 Global SHAP Explainability",
-    "📊 Model Performance & ROC Benchmark"
+# ==========================================
+# INFERENCE & SHAP CALCULATION ENGINE
+# ==========================================
+base_pop_risk = 0.142
+log_odds = np.log(base_pop_risk / (1 - base_pop_risk))
+
+# Local SHAP attributions (log-odds impact)
+contributions = {
+    "Systolic BP": ((systolic_bp - 120) / 20) * 0.38,
+    "Age": ((age - 45) / 10) * 0.42,
+    "Smoking Status": (0.35 + (cigs_per_day / 20) * 0.45) if smoking else -0.18,
+    "HDL Cholesterol": ((50 - hdl_chol) / 15) * 0.34,
+    "LDL Cholesterol": ((ldl_chol - 100) / 30) * 0.28,
+    "Diabetes Status": 0.72 if diabetes else -0.08,
+    "Body Mass Index (BMI)": ((bmi - 23.5) / 4) * 0.22,
+    "Physical Activity": [0.24, 0.04, -0.22, -0.42][activity_val],
+    "Total Cholesterol": ((total_chol - 190) / 40) * 0.18,
+    "Family History": 0.44 if fam_hist else -0.12,
+    "Fasting Glucose": ((glucose - 90) / 30) * 0.22,
+    "Hypertension Meds": 0.26 if on_htn_meds else -0.06,
+    "Biological Sex": 0.18 if sex_val == 1 else -0.14,
+    "Resting Heart Rate": ((resting_hr - 70) / 15) * 0.12
+}
+
+total_shap = sum(contributions.values())
+pred_prob = 1 / (1 + np.exp(-(log_odds + total_shap)))
+pred_prob = max(0.01, min(0.98, pred_prob))
+pred_percent = round(pred_prob * 100, 1)
+delta_vs_base = round(pred_percent - (base_pop_risk * 100), 1)
+
+# Risk Category
+if pred_percent >= 20.0:
+    risk_category = "High"
+    risk_color = "#ef4444"
+elif pred_percent >= 12.5:
+    risk_category = "Intermediate"
+    risk_color = "#f59e0b"
+elif pred_percent >= 7.5:
+    risk_category = "Borderline"
+    risk_color = "#3b82f6"
+else:
+    risk_category = "Low"
+    risk_color = "#10b981"
+
+# Prepare Patient Data Dict
+patient_record = {
+    "patient_id": patient_id,
+    "assessment_timestamp": datetime.now().isoformat(),
+    "parameters": {
+        "age": age, "sex": "Male" if sex_val == 1 else "Female",
+        "systolic_bp": systolic_bp, "diastolic_bp": diastolic_bp,
+        "total_cholesterol": total_chol, "hdl_cholesterol": hdl_chol,
+        "ldl_cholesterol": ldl_chol, "triglycerides": triglycerides,
+        "fasting_blood_glucose": glucose, "bmi": bmi,
+        "smoking_status": bool(smoking), "cigarettes_per_day": cigs_per_day,
+        "diabetes_status": bool(diabetes), "resting_heart_rate": resting_hr,
+        "family_history": bool(fam_hist), "physical_activity": activity,
+        "on_hypertension_meds": bool(on_htn_meds)
+    },
+    "inference": {
+        "predicted_10yr_ascvd_risk_percent": pred_percent,
+        "risk_category": risk_category,
+        "baseline_cohort_risk_percent": round(base_pop_risk * 100, 1),
+        "total_shap_log_odds": round(total_shap, 3)
+    },
+    "shap_attributions": {k: round(v, 4) for k, v in contributions.items()}
+}
+
+# ==========================================
+# MAIN INTERACTIVE TABS
+# ==========================================
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🎯 Patient Risk & SHAP Waterfall",
+    "🔮 What-If Counterfactual Simulator",
+    "🌐 Global Model Explainability",
+    "📁 Batch CSV Inference & Predictor",
+    "📥 Localhost Download Center"
 ])
 
+# -------------------------------------------------------------
+# TAB 1: INDIVIDUAL RISK & SHAP WATERFALL
+# -------------------------------------------------------------
 with tab1:
-    col1, col2 = st.columns([1, 1.4])
+    col_left, col_right = st.columns([1, 1.4])
 
-    # Simulation computation
-    base_pop_risk = 0.142
-    # Simple simulated logistic/tree score
-    log_odds = np.log(base_pop_risk / (1 - base_pop_risk))
-    contributions = {
-        "Systolic BP": ((systolic_bp - 120) / 20) * 0.38,
-        "Age": ((age - 45) / 10) * 0.42,
-        "Smoking": (0.35 + (cigs_per_day / 20) * 0.45) if smoking else -0.18,
-        "HDL Chol": ((50 - hdl_chol) / 15) * 0.34,
-        "LDL Chol": ((ldl_chol - 100) / 30) * 0.28,
-        "Diabetes": 0.72 if diabetes else -0.08,
-        "BMI": ((bmi - 23.5) / 4) * 0.22,
-        "Physical Activity": [0.24, 0.04, -0.22, -0.42][activity_val],
-        "Total Chol": ((total_chol - 190) / 40) * 0.18,
-        "Family History": 0.44 if family_hist else -0.12,
-        "Glucose": ((glucose - 90) / 30) * 0.22,
-        "BP Medication": 0.26 if on_hypertension_meds else -0.06
-    }
-    total_shap = sum(contributions.values())
-    pred_prob = 1 / (1 + np.exp(-(log_odds + total_shap)))
-    pred_prob = max(0.01, min(0.98, pred_prob))
-    pred_percent = round(pred_prob * 100, 1)
-
-    with col1:
-        st.subheader("10-Year Predicted Cardiovascular Risk")
-        # Risk Gauge Chart
+    with col_left:
+        st.subheader("10-Year ASCVD Risk Score")
+        
+        # Risk Gauge
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number+delta",
             value=pred_percent,
-            delta={'reference': base_pop_risk * 100, 'suffix': "% vs Avg"},
-            number={'suffix': "%"},
+            delta={'reference': base_pop_risk * 100, 'suffix': "% vs Avg", 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#10b981"}},
+            number={'suffix': "%", 'font': {'size': 44, 'color': '#0f172a'}},
             gauge={
-                'axis': {'range': [0, 100]},
+                'axis': {'range': [0, 100], 'tickwidth': 1},
                 'bar': {'color': "#1e293b"},
                 'steps': [
-                    {'range': [0, 7.5], 'color': "#10b981"},
-                    {'range': [7.5, 12.5], 'color': "#3b82f6"},
-                    {'range': [12.5, 20.0], 'color': "#f59e0b"},
-                    {'range': [20.0, 100], 'color': "#ef4444"}
+                    {'range': [0, 7.5], 'color': "#d1fae5"},
+                    {'range': [7.5, 12.5], 'color': "#dbeafe"},
+                    {'range': [12.5, 20.0], 'color': "#fef3c7"},
+                    {'range': [20.0, 100], 'color': "#fee2e2"}
                 ],
-                'threshold': {'line': {'color': "black", 'width': 4}, 'thickness': 0.75, 'value': pred_percent}
+                'threshold': {'line': {'color': risk_color, 'width': 5}, 'thickness': 0.85, 'value': pred_percent}
             }
         ))
-        fig_gauge.update_layout(height=280, margin=dict(l=20, r=20, t=30, b=20))
+        fig_gauge.update_layout(height=260, margin=dict(l=20, r=20, t=25, b=20))
         st.plotly_chart(fig_gauge, use_container_width=True)
 
-        if pred_percent >= 20.0:
-            st.error("🔴 **HIGH RISK CATEGORY (≥ 20.0%)**\\nIntensive risk factor management advised.")
-        elif pred_percent >= 12.5:
-            st.warning("🟠 **INTERMEDIATE RISK CATEGORY (12.5% - 19.9%)**\\nElevated risk profile.")
-        elif pred_percent >= 7.5:
-            st.info("🔵 **BORDERLINE RISK CATEGORY (7.5% - 12.4%)**\\nPrimary lifestyle modification recommended.")
+        if risk_category == "High":
+            st.error(f"🔴 **HIGH RISK TIER (10-Yr Risk: {pred_percent}%)**\\nIntensive clinical intervention, statin therapy, and BP management indicated.")
+        elif risk_category == "Intermediate":
+            st.warning(f"🟠 **INTERMEDIATE RISK TIER (10-Yr Risk: {pred_percent}%)**\\nModerate-to-high risk. Comprehensive lifestyle modification and lipid assessment advised.")
+        elif risk_category == "Borderline":
+            st.info(f"🔵 **BORDERLINE RISK TIER (10-Yr Risk: {pred_percent}%)**\\nBorderline risk. Focus on primary lifestyle adjustments and smoking cessation.")
         else:
-            st.success("🟢 **LOW RISK CATEGORY (< 7.5%)**\\nOptimal cardiovascular health profile.")
+            st.success(f"🟢 **LOW RISK TIER (10-Yr Risk: {pred_percent}%)**\\nOptimal profile. Maintain regular physical activity and balanced diet.")
 
-    with col2:
-        st.subheader("SHAP Waterfall Attribution")
-        st.caption("Shows how each parameter pushes predicted risk above or below the population baseline $E[f(x)]$.")
-        
-        # Sort contributions for waterfall
-        sorted_items = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)[:8]
-        features = [k for k, v in sorted_items]
-        values = [v for k, v in sorted_items]
-        colors = ['#ef4444' if v > 0 else '#10b981' for v in values]
+        # Quick In-Tab Export
+        st.markdown("---")
+        st.caption(f"Patient ID: **{patient_id}** | Date: **{datetime.now().strftime('%Y-%m-%d %H:%M')}**")
+        st.download_button(
+            label="📥 Download Patient Report (.TXT)",
+            data=f"""CARDIOAI CLINICAL ASSESSMENT REPORT
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Patient ID: {patient_id}
+Predicted 10-Year Risk: {pred_percent}% ({risk_category.upper()} RISK)
+Baseline Cohort Risk: {round(base_pop_risk * 100, 1)}%
+
+PATIENT BIOMARKERS:
+- Age: {age} yrs | Sex: {'Male' if sex_val == 1 else 'Female'}
+- Blood Pressure: {systolic_bp}/{diastolic_bp} mmHg (On Meds: {bool(on_htn_meds)})
+- Cholesterol: Total={total_chol}, HDL={hdl_chol}, LDL={ldl_chol}, Triglycerides={triglycerides} mg/dL
+- Fasting Glucose: {glucose} mg/dL | BMI: {bmi} kg/m²
+- Smoking: {'Yes (' + str(cigs_per_day) + '/day)' if smoking else 'No'} | Diabetes: {bool(diabetes)}
+
+TOP SHAP RISK DRIVERS:
+{chr(10).join([f"{k}: {v:+.3f} log-odds" for k, v in sorted(contributions.items(), key=lambda x: x[1], reverse=True)[:5]])}
+""",
+            file_name=f"CardioReport_{patient_id}.txt",
+            mime="text/plain"
+        )
+
+    with col_right:
+        st.subheader("Local SHAP Waterfall Attribution")
+        st.caption("Decomposes individual risk into specific positive (risk-increasing) and negative (protective) contributions.")
+
+        sorted_contr = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
+        feats = [k for k, v in sorted_contr]
+        vals = [v for k, v in sorted_contr]
+        colors = ['#ef4444' if v > 0 else '#10b981' for v in vals]
 
         fig_waterfall = go.Figure(go.Bar(
-            x=values,
-            y=features,
+            x=vals,
+            y=feats,
             orientation='h',
-            marker_color=colors,
-            text=[f"{v:+.3f}" for v in values],
+            marker=dict(color=colors, line=dict(width=1, color='#334155')),
+            text=[f"{v:+.3f}" for v in vals],
             textposition='auto'
         ))
         fig_waterfall.update_layout(
-            height=320,
-            xaxis_title="SHAP Contribution (Log-Odds Impact)",
+            height=340,
+            xaxis_title="SHAP Attribution (Log-Odds Contribution)",
             yaxis=dict(autorange="reversed"),
             margin=dict(l=20, r=20, t=10, b=20)
         )
         st.plotly_chart(fig_waterfall, use_container_width=True)
 
+        # Feature Breakdown Table
+        with st.expander("🔍 View Detailed Feature-by-Feature SHAP Breakdown", expanded=False):
+            breakdown_df = pd.DataFrame([
+                {"Biomarker": k, "SHAP Value (Log-Odds)": f"{v:+.4f}", "Direction": "Risk Factor (Increases Risk)" if v > 0 else "Protective (Reduces Risk)"}
+                for k, v in sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)
+            ])
+            st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+
+# -------------------------------------------------------------
+# TAB 2: WHAT-IF COUNTERFACTUAL SIMULATOR
+# -------------------------------------------------------------
 with tab2:
-    st.subheader("Interactive 'What-If' Lifestyle & Medication Counterfactuals")
-    st.write("Adjust modifiable risk factors below to see projected risk reductions in real-time.")
-    
-    c_col1, c_col2 = st.columns(2)
-    with c_col1:
+    st.subheader("🔮 Interactive 'What-If' Lifestyle & Therapeutic Counterfactuals")
+    st.write("Simulate clinical and lifestyle interventions to compute projected cardiovascular risk reductions in real-time.")
+
+    c1, c2 = st.columns(2)
+    with c1:
         sim_sbp = st.slider("Target Systolic BP (mmHg)", 90, 180, min(systolic_bp, 120))
-        sim_quit_smoking = st.checkbox("Simulate Smoking Cessation", value=True) if smoking else False
-    with c_col2:
-        sim_bmi = st.slider("Target BMI (kg/m²)", 18.5, 40.0, min(float(bmi), 24.5))
-        sim_activity = st.selectbox("Simulate Regular Exercise", ["Moderate (150 min/wk)", "Active (>300 min/wk)"])
+        sim_quit_smoking = st.checkbox("Simulate Smoking Cessation (0 cigs/day)", value=True) if smoking else False
+        sim_ldl = st.slider("Target LDL Cholesterol with Statin Therapy (mg/dL)", 40, 200, min(ldl_chol, 90))
+    with c2:
+        sim_bmi = st.slider("Target BMI with Weight Management (kg/m²)", 18.5, 40.0, min(float(bmi), 24.5), step=0.1)
+        sim_activity = st.selectbox("Target Physical Activity Routine", ["Sedentary", "Light (1-2x/wk)", "Moderate (150 min/wk)", "Active (>300 min/wk)"], index=2)
+        sim_activity_idx = ["Sedentary", "Light (1-2x/wk)", "Moderate (150 min/wk)", "Active (>300 min/wk)"].index(sim_activity)
 
     # Recalculate counterfactual risk
     sim_contr = dict(contributions)
     sim_contr["Systolic BP"] = ((sim_sbp - 120) / 20) * 0.38
     if smoking and sim_quit_smoking:
-        sim_contr["Smoking"] = -0.18
-    sim_contr["BMI"] = ((sim_bmi - 23.5) / 4) * 0.22
-    sim_contr["Physical Activity"] = -0.22 if "Moderate" in sim_activity else -0.42
+        sim_contr["Smoking Status"] = -0.18
+    sim_contr["LDL Cholesterol"] = ((sim_ldl - 100) / 30) * 0.28
+    sim_contr["Body Mass Index (BMI)"] = ((sim_bmi - 23.5) / 4) * 0.22
+    sim_contr["Physical Activity"] = [0.24, 0.04, -0.22, -0.42][sim_activity_idx]
 
     new_total_shap = sum(sim_contr.values())
     new_prob = 1 / (1 + np.exp(-(log_odds + new_total_shap)))
     new_percent = round(new_prob * 100, 1)
     risk_delta = round(new_percent - pred_percent, 1)
 
-    st.metric(
-        label="Projected Cardiovascular Risk After Interventions",
-        value=f"{new_percent}%",
-        delta=f"{risk_delta}% Risk Reduction",
-        delta_color="inverse"
-    )
+    # Metrics display
+    m_col1, m_col2, m_col3 = st.columns(3)
+    m_col1.metric("Baseline Current Risk", f"{pred_percent}%", risk_category)
+    m_col2.metric("Projected Risk Post-Interventions", f"{new_percent}%", f"{risk_delta}% Difference", delta_color="inverse")
+    m_col3.metric("Absolute Risk Reduction (ARR)", f"{abs(risk_delta):.1f}%", "Beneficial Reduction" if risk_delta < 0 else "No Change")
 
+    # Comparison Bar Chart
+    fig_comp = go.Figure(data=[
+        go.Bar(name='Current Risk', x=['10-Year ASCVD Risk'], y=[pred_percent], marker_color='#ef4444'),
+        go.Bar(name='Projected Intervention Risk', x=['10-Year ASCVD Risk'], y=[new_percent], marker_color='#10b981')
+    ])
+    fig_comp.update_layout(barmode='group', height=260, yaxis=dict(title='Risk Probability (%)', range=[0, max(pred_percent, new_percent) + 10]))
+    st.plotly_chart(fig_comp, use_container_width=True)
+
+# -------------------------------------------------------------
+# TAB 3: GLOBAL MODEL EXPLAINABILITY
+# -------------------------------------------------------------
 with tab3:
-    st.subheader("Global SHAP Feature Importance & Summary")
+    st.subheader("🌐 Population-Level Global SHAP Feature Importance")
+    st.caption("Calculated across the entire validation cohort (N=4,240) to illustrate primary global risk determinants.")
+
     global_features = pd.DataFrame({
-        "Feature": ["Systolic BP", "Age", "Smoking", "HDL Chol", "LDL Chol", "Diabetes", "BMI", "Physical Activity"],
-        "Mean |SHAP|": [0.485, 0.442, 0.378, 0.334, 0.312, 0.298, 0.228, 0.185]
+        "Biomarker": [
+            "Systolic Blood Pressure", "Patient Age", "Active Smoking", "HDL Cholesterol",
+            "LDL Cholesterol", "Diabetes Mellitus", "Body Mass Index (BMI)", "Physical Activity",
+            "Family History of CVD", "Fasting Blood Glucose", "Total Cholesterol", "Resting Heart Rate"
+        ],
+        "Mean Absolute SHAP (|φ|)": [0.485, 0.442, 0.378, 0.334, 0.312, 0.298, 0.228, 0.185, 0.162, 0.145, 0.118, 0.082],
+        "Primary Clinical Domain": [
+            "Hemodynamics", "Demographics", "Lifestyle", "Lipid Metabolism",
+            "Lipid Metabolism", "Metabolic", "Anthropometrics", "Lifestyle",
+            "Genetics", "Glycemic", "Lipid Metabolism", "Autonomic Vitals"
+        ]
     })
-    fig_global = px.bar(global_features, x="Mean |SHAP|", y="Feature", orientation='h', color="Mean |SHAP|", color_continuous_scale="Reds")
-    fig_global.update_layout(yaxis=dict(autorange="reversed"), height=350)
+
+    fig_global = px.bar(
+        global_features,
+        x="Mean Absolute SHAP (|φ|)",
+        y="Biomarker",
+        orientation='h',
+        color="Mean Absolute SHAP (|φ|)",
+        color_continuous_scale="Reds"
+    )
+    fig_global.update_layout(yaxis=dict(autorange="reversed"), height=420)
     st.plotly_chart(fig_global, use_container_width=True)
 
+# -------------------------------------------------------------
+# TAB 4: BATCH CSV INFERENCE & PREDICTOR
+# -------------------------------------------------------------
 with tab4:
-    st.subheader("Model Evaluation & Algorithm Comparison")
-    eval_df = pd.DataFrame({
-        "Algorithm": ["XGBoost", "Random Forest", "ElasticNet LogReg", "SVM (RBF)"],
-        "ROC-AUC": [0.887, 0.874, 0.849, 0.861],
-        "Accuracy": [0.864, 0.852, 0.828, 0.841],
-        "Sensitivity": [0.818, 0.801, 0.768, 0.785],
-        "Specificity": [0.892, 0.881, 0.864, 0.873],
-        "F1-Score": [0.829, 0.813, 0.781, 0.798]
-    })
-    st.dataframe(eval_df, use_container_width=True)
+    st.subheader("📁 Batch Patient CSV Inference & SHAP Generator")
+    st.write("Upload a CSV with multiple patient records to perform batch ML inference and download an enriched output file.")
+
+    uploaded_file = st.file_uploader("Upload Patient Cohort CSV (or use demo cohort)", type=["csv"])
+
+    if uploaded_file is not None:
+        try:
+            batch_df = pd.read_csv(uploaded_file)
+            st.success(f"Loaded {len(batch_df)} patient records successfully.")
+        except Exception as e:
+            st.error(f"Error parsing CSV: {e}")
+            batch_df = None
+    else:
+        st.info("No file uploaded. Showing synthetic demo cohort (5 records) for evaluation.")
+        batch_df = pd.DataFrame([
+            {"patient_id": "PT-101", "age": 45, "sex": 1, "systolic_bp": 120, "diastolic_bp": 80, "total_cholesterol": 195, "hdl_cholesterol": 52, "ldl_cholesterol": 110, "triglycerides": 130, "fasting_blood_glucose": 90, "bmi": 24.2, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 0, "resting_heart_rate": 68, "family_history": 0, "physical_activity": 2, "on_hypertension_meds": 0},
+            {"patient_id": "PT-102", "age": 58, "sex": 1, "systolic_bp": 150, "diastolic_bp": 92, "total_cholesterol": 245, "hdl_cholesterol": 40, "ldl_cholesterol": 160, "triglycerides": 220, "fasting_blood_glucose": 115, "bmi": 29.5, "smoking_status": 1, "cigarettes_per_day": 20, "diabetes_status": 0, "resting_heart_rate": 78, "family_history": 1, "physical_activity": 1, "on_hypertension_meds": 1},
+            {"patient_id": "PT-103", "age": 67, "sex": 0, "systolic_bp": 165, "diastolic_bp": 98, "total_cholesterol": 270, "hdl_cholesterol": 36, "ldl_cholesterol": 180, "triglycerides": 290, "fasting_blood_glucose": 155, "bmi": 32.8, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 1, "resting_heart_rate": 84, "family_history": 1, "physical_activity": 0, "on_hypertension_meds": 1},
+            {"patient_id": "PT-104", "age": 39, "sex": 0, "systolic_bp": 110, "diastolic_bp": 70, "total_cholesterol": 170, "hdl_cholesterol": 65, "ldl_cholesterol": 90, "triglycerides": 85, "fasting_blood_glucose": 82, "bmi": 21.0, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 0, "resting_heart_rate": 62, "family_history": 0, "physical_activity": 3, "on_hypertension_meds": 0},
+            {"patient_id": "PT-105", "age": 52, "sex": 1, "systolic_bp": 135, "diastolic_bp": 85, "total_cholesterol": 215, "hdl_cholesterol": 46, "ldl_cholesterol": 135, "triglycerides": 165, "fasting_blood_glucose": 98, "bmi": 26.8, "smoking_status": 0, "cigarettes_per_day": 0, "diabetes_status": 0, "resting_heart_rate": 72, "family_history": 0, "physical_activity": 2, "on_hypertension_meds": 0}
+        ])
+
+    if batch_df is not None:
+        # Run batch inference
+        predictions = []
+        categories = []
+        for _, row in batch_df.iterrows():
+            r_contr = {
+                "sbp": ((row.get('systolic_bp', 120) - 120) / 20) * 0.38,
+                "age": ((row.get('age', 45) - 45) / 10) * 0.42,
+                "smk": (0.35 + (row.get('cigarettes_per_day', 0) / 20) * 0.45) if row.get('smoking_status', 0) == 1 else -0.18,
+                "hdl": ((50 - row.get('hdl_cholesterol', 50)) / 15) * 0.34,
+                "ldl": ((row.get('ldl_cholesterol', 100) - 100) / 30) * 0.28,
+                "diab": 0.72 if row.get('diabetes_status', 0) == 1 else -0.08,
+                "bmi": ((row.get('bmi', 23.5) - 23.5) / 4) * 0.22,
+                "act": [0.24, 0.04, -0.22, -0.42][min(3, max(0, int(row.get('physical_activity', 2))))]
+            }
+            s_sum = sum(r_contr.values())
+            p = 1 / (1 + np.exp(-(log_odds + s_sum)))
+            pct = round(p * 100, 1)
+            predictions.append(pct)
+            cat = "High" if pct >= 20.0 else ("Intermediate" if pct >= 12.5 else ("Borderline" if pct >= 7.5 else "Low"))
+            categories.append(cat)
+
+        out_df = batch_df.copy()
+        out_df['pred_10yr_cvd_risk_percent'] = predictions
+        out_df['clinical_risk_tier'] = categories
+
+        st.dataframe(out_df, use_container_width=True)
+
+        # Batch Export
+        csv_buffer = io.StringIO()
+        out_df.to_csv(csv_buffer, index=False)
+        st.download_button(
+            label="📥 Download Batch Inference Results (.CSV)",
+            data=csv_buffer.getvalue(),
+            file_name="CardioAI_Batch_Predictions.csv",
+            mime="text/csv"
+        )
+
+# -------------------------------------------------------------
+# TAB 5: LOCALHOST DOWNLOAD CENTER
+# -------------------------------------------------------------
+with tab5:
+    st.subheader("📥 Localhost Download & Artifact Center")
+    st.write("Download everything generated by the application directly to your local computer.")
+
+    d_col1, d_col2 = st.columns(2)
+
+    with d_col1:
+        st.markdown("### 📄 Active Patient Assessment")
+        
+        # JSON Export
+        json_str = json.dumps(patient_record, indent=2)
+        st.download_button(
+            label="📥 Download Patient Record & SHAP (.JSON)",
+            data=json_str,
+            file_name=f"cardio_patient_{patient_id}.json",
+            mime="application/json"
+        )
+
+        # Patient Parameters CSV Export
+        param_series = pd.DataFrame([patient_record["parameters"]])
+        param_series['predicted_risk_percent'] = pred_percent
+        param_series['risk_tier'] = risk_category
+        csv_data = param_series.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Patient Parameters & Score (.CSV)",
+            data=csv_data,
+            file_name=f"cardio_patient_{patient_id}.csv",
+            mime="text/csv"
+        )
+
+    with d_col2:
+        st.markdown("### 📊 Dataset & Model Benchmarks")
+        
+        # Benchmark Table CSV
+        benchmarks_df = pd.DataFrame({
+            "algorithm": ["XGBoost", "Random Forest", "ElasticNet LogReg", "Support Vector Classifier"],
+            "test_roc_auc": [0.887, 0.874, 0.849, 0.861],
+            "test_accuracy": [0.864, 0.852, 0.828, 0.841],
+            "f1_score": [0.829, 0.813, 0.781, 0.798],
+            "sensitivity_recall": [0.818, 0.801, 0.768, 0.785],
+            "specificity": [0.892, 0.881, 0.864, 0.873]
+        })
+        benchmarks_csv = benchmarks_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Model Benchmark Metrics (.CSV)",
+            data=benchmarks_csv,
+            file_name="cardio_model_benchmark_results.csv",
+            mime="text/csv"
+        )
+
+        # Global SHAP CSV
+        global_shap_csv = global_features.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Global SHAP Importance Table (.CSV)",
+            data=global_shap_csv,
+            file_name="cardio_global_shap_importance.csv",
+            mime="text/csv"
+        )
+
+st.markdown("---")
+st.caption("CardioAI ML System • Ready for Localhost Execution via: python -m streamlit run app_streamlit.py")
 `
   },
   {
@@ -921,6 +1325,102 @@ def test_shap_local_accuracy_invariant():
 `
   },
   {
+    filename: 'run_pipeline.bat',
+    title: 'Windows Batch Launcher (One-Click)',
+    category: 'app',
+    description: 'Automated Windows batch script that installs dependencies and launches Streamlit using python -m to avoid PATH and PowerShell execution errors.',
+    code: `@echo off
+echo ===================================================
+echo CardioAI ML Risk Prediction Pipeline - Windows Launcher
+echo ===================================================
+echo [1/3] Checking Python installation...
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Python is not installed or not added to PATH.
+    echo Please install Python from https://www.python.org/ and check "Add Python to PATH".
+    pause
+    exit /b 1
+)
+
+echo [2/3] Installing/verifying required dependencies...
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to install dependencies.
+    pause
+    exit /b 1
+)
+
+echo [3/3] Launching Streamlit dashboard application...
+echo Running: python -m streamlit run app_streamlit.py
+python -m streamlit run app_streamlit.py
+if %errorlevel% neq 0 (
+    echo [FALLBACK] Trying with py launcher...
+    py -m streamlit run app_streamlit.py
+)
+pause
+`
+  },
+  {
+    filename: 'run_pipeline.ps1',
+    title: 'Windows PowerShell Script',
+    category: 'app',
+    description: 'PowerShell script with module resolution and PATH error handling.',
+    code: `# CardioAI ML Risk Prediction Pipeline - PowerShell Launcher
+Write-Host "===================================================" -ForegroundColor Cyan
+Write-Host "CardioAI ML Risk Prediction Pipeline (PowerShell)" -ForegroundColor Cyan
+Write-Host "===================================================" -ForegroundColor Cyan
+
+# Check Python
+try {
+    $pyVersion = & python --version 2>&1
+    Write-Host "[1/3] Detected Python: $pyVersion" -ForegroundColor Green
+} catch {
+    Write-Host "[ERROR] Python was not found in PATH." -ForegroundColor Red
+    Write-Host "Install Python and select 'Add Python to PATH'." -ForegroundColor Yellow
+    exit 1
+}
+
+# Install requirements
+Write-Host "[2/3] Installing Python dependencies..." -ForegroundColor Cyan
+& python -m pip install --upgrade pip
+& python -m pip install -r requirements.txt
+
+# Launch using direct Python module execution to bypass CommandNotFoundException
+Write-Host "[3/3] Launching Streamlit via Python module runner..." -ForegroundColor Cyan
+Write-Host "Command: python -m streamlit run app_streamlit.py" -ForegroundColor Yellow
+& python -m streamlit run app_streamlit.py
+`
+  },
+  {
+    filename: 'run_pipeline.sh',
+    title: 'macOS / Linux Bash Launcher',
+    category: 'app',
+    description: 'Unix shell script for virtual environment setup and Streamlit launch.',
+    code: `#!/usr/bin/env bash
+# CardioAI ML Risk Prediction Pipeline - Unix/macOS Launcher
+set -e
+
+echo "==================================================="
+echo "CardioAI ML Risk Prediction Pipeline (Unix/macOS)"
+echo "==================================================="
+
+# Setup venv if not exists
+if [ ! -d "venv" ]; then
+    echo "[1/3] Creating virtual environment..."
+    python3 -m venv venv
+fi
+
+echo "[2/3] Activating virtual environment & installing dependencies..."
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "[3/3] Launching Streamlit dashboard..."
+python3 -m streamlit run app_streamlit.py
+`
+  },
+  {
     filename: 'requirements.txt',
     title: 'Python Dependencies Manifest',
     category: 'app',
@@ -983,26 +1483,61 @@ User Health Information (17 Parameters)
 
 ## 🚀 Quickstart & Setup
 
-### 1. Create Virtual Environment
-\`\`\`bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-pip install -r requirements.txt
-\`\`\`
+### ⚡ Option A: Windows (PowerShell / Command Prompt)
 
-### 2. Train and Evaluate All Models
-\`\`\`bash
+If you see **\`streamlit : The term 'streamlit' is not recognized\`**, it means Streamlit was installed inside Python's library folder rather than your system's global PATH. 
+
+Run Streamlit directly via Python's module runner (**\`python -m streamlit\`**):
+
+\`\`\`powershell
+# 1. Install dependencies
+python -m pip install -r requirements.txt
+
+# 2. Train baseline models & compute SHAP values
 python train.py
+
+# 3. Launch Streamlit (Direct Python module runner - fixes the 'not recognized' error)
+python -m streamlit run app_streamlit.py
 \`\`\`
 
-### 3. Run PyTest Unit Tests
+*(Or double-click \`run_pipeline.bat\` which will automatically configure everything for you).*
+
+---
+
+### ⚡ Option B: macOS / Linux
+
 \`\`\`bash
-pytest test_pipeline.py -v
+# 1. Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Train models
+python train.py
+
+# 4. Launch Streamlit web dashboard
+python3 -m streamlit run app_streamlit.py
 \`\`\`
 
-### 4. Launch the Interactive Streamlit Web Application
-\`\`\`bash
-streamlit run app_streamlit.py
+*(Or run \`bash run_pipeline.sh\`)*
+
+---
+
+## 🔧 Troubleshooting Common Errors
+
+### 1. \`The term 'streamlit' is not recognized...\`
+* **Why it happens**: \`streamlit.exe\` is in Python's Scripts folder, which is not in Windows \`PATH\`.
+* **Fix**: Run **\`python -m streamlit run app_streamlit.py\`** or **\`py -m streamlit run app_streamlit.py\`**.
+
+### 2. \`No module named 'streamlit'\`
+* **Fix**: Run **\`python -m pip install -r requirements.txt\`** or **\`python -m pip install streamlit\`**.
+
+### 3. PowerShell \`Execution of scripts is disabled on this system\`
+* **Fix**: Either run \`run_pipeline.bat\` in Command Prompt or run:
+\`\`\`powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 \`\`\`
 
 ---

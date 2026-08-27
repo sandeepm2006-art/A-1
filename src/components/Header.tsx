@@ -1,6 +1,7 @@
 import React from 'react';
 import { ModelType } from '../types/cardio';
 import { Activity, ShieldAlert, Sparkles, Cpu, Layers, FileCode } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface HeaderProps {
   activeModel: ModelType;
@@ -42,7 +43,10 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
         <div className="hidden sm:flex items-center gap-3 font-mono text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-          <span>Pipeline ID: CVD-XP-90210</span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Pipeline ID: CVD-XP-90210
+          </span>
           <span>•</span>
           <span>ACC/AHA 10-Yr Framework</span>
         </div>
@@ -51,9 +55,24 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Main Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sky-700 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: 2 }}
+            whileTap={{ scale: 0.95 }}
+            className="w-10 h-10 bg-sky-700 rounded-lg flex items-center justify-center shrink-0 shadow-sm relative overflow-hidden"
+          >
             <Activity className="w-6 h-6 text-white" />
-          </div>
+            <motion.div
+              animate={{
+                x: ['-100%', '200%']
+              }}
+              transition={{
+                repeat: Infinity,
+                duration: 3,
+                ease: 'easeInOut'
+              }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+            />
+          </motion.div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">CardioAI Explainer</h1>
@@ -71,18 +90,31 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-wrap items-center gap-4">
           <div className="text-right hidden lg:block">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Model Status</p>
-            <p className="text-xs font-mono text-emerald-600 font-semibold">
+            <motion.p
+              key={activeModel}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="text-xs font-mono text-emerald-600 font-semibold flex items-center justify-end gap-1"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
               Active • {modelLabels[activeModel]?.name}
-            </p>
+            </motion.p>
           </div>
 
           <div className="h-7 w-[1px] bg-slate-200 hidden lg:block"></div>
 
           <div className="text-right hidden sm:block">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">System Benchmark</p>
-            <p className="text-xs font-mono text-slate-700 font-semibold">
+            <motion.p
+              key={activeModel + '-auc'}
+              initial={{ scale: 1.1, color: '#0284c7' }}
+              animate={{ scale: 1, color: '#334155' }}
+              transition={{ duration: 0.3 }}
+              className="text-xs font-mono text-slate-700 font-semibold"
+            >
               {modelLabels[activeModel]?.auc}
-            </p>
+            </motion.p>
           </div>
 
           <div className="h-7 w-[1px] bg-slate-200 hidden sm:block"></div>
@@ -93,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
             <select
               value={activeModel}
               onChange={(e) => onModelChange(e.target.value as ModelType)}
-              className="bg-white text-slate-800 text-xs font-semibold rounded px-2.5 py-1.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-600 cursor-pointer shadow-xs"
+              className="bg-white text-slate-800 text-xs font-semibold rounded px-2.5 py-1.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-600 cursor-pointer shadow-xs transition-shadow hover:border-slate-300"
             >
               <option value="xgboost">Gradient Boost (XGBoost) - 88.7% AUC</option>
               <option value="random_forest">Random Forest Ensemble - 87.4% AUC</option>
@@ -104,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* High Density Navigation Tabs */}
+      {/* Navigation Tabs with Spring Animated Underline */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex overflow-x-auto space-x-1 scrollbar-none border-t border-slate-200 bg-white">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -113,14 +145,21 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors uppercase tracking-wider text-[11px] ${
+              className={`relative flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold whitespace-nowrap transition-colors uppercase tracking-wider text-[11px] ${
                 isActive
-                  ? 'border-sky-600 text-sky-700 bg-sky-50/50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  ? 'text-sky-700 font-bold bg-sky-50/40'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-sky-600' : 'text-slate-400'}`} />
               <span>{tab.label}</span>
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabUnderline"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-600"
+                />
+              )}
             </button>
           );
         })}
