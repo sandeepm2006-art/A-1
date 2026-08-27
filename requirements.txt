@@ -1,0 +1,14 @@
+# Explainable Multi-Parametric Cardiovascular Risk Prediction Pipeline
+# Python 3.10+ compatible
+
+streamlit>=1.35.0
+scikit-learn>=1.4.0
+xgboost>=2.0.3
+shap>=0.45.0
+pandas>=2.2.0
+numpy>=1.26.0
+pydantic>=2.7.0
+imbalanced-learn>=0.12.0
+plotly>=5.20.0
+joblib>=1.4.0
+pytest>=8.1.0

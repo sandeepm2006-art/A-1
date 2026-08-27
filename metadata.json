@@ -1,0 +1,6 @@
+{
+  "name": "Explainable CardioRisk ML",
+  "description": "An Explainable Machine Learning Pipeline & Interactive Dashboard for Multi-Parametric Cardiovascular Risk Prediction featuring Gradient Boosting, Random Forest, Logistic Regression, real-time SHAP local/global explainability, what-if counterfactuals, and complete exportable Python pipeline modules.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
